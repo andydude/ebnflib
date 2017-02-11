@@ -1,0 +1,164 @@
+---
+definitions:
+  EbnfAny:
+    oneOf:
+      - $ref: '#/definitions/EbnfAlt'
+      - $ref: '#/definitions/EbnfComment'
+      - $ref: '#/definitions/EbnfEmpty'
+      - $ref: '#/definitions/EbnfGroup'
+      - $ref: '#/definitions/EbnfMany'
+      - $ref: '#/definitions/EbnfMany1'
+      - $ref: '#/definitions/EbnfMinus'
+      - $ref: '#/definitions/EbnfOpt'
+      - $ref: '#/definitions/EbnfRegExp'
+      - $ref: '#/definitions/EbnfSeq'
+      - $ref: '#/definitions/EbnfSpecial'
+      - $ref: '#/definitions/EbnfStr'
+      - $ref: '#/definitions/EbnfTimes'
+      - $ref: '#/definitions/EbnfToken'
+        
+  EbnfAlt:
+    x-tag: 'tag:drosoft.org/ebnf,2016:alt'
+    type: object
+    required:
+      - alt
+    properties:
+      alt:
+        type: array
+        items:
+          $ref: '#/definitions/EbnfSeq'
+          
+  EbnfComment:
+    x-tag: 'tag:drosoft.org/ebnf,2016:comment'
+    type: object
+    required:
+      - comment
+    properties:
+      comment:
+        type: string
+        
+  EbnfEmpty:
+    x-tag: 'tag:drosoft.org/ebnf,2016:empty'
+    type: object
+    required:
+      - empty
+    properties:
+      empty:
+        $ref: '#/definitions/EbnfAny'
+        
+  EbnfGroup:
+    x-tag: 'tag:drosoft.org/ebnf,2016:group'
+    type: object
+    required:
+      - group
+    properties:
+      group:
+        $ref: '#/definitions/EbnfAny'
+        
+  EbnfMap:
+    x-tag: 'tag:yaml.org,2002:map'
+    type: object
+    required:
+      - rules
+    properties:
+      rules:
+        $ref: '#/definitions/EbnfAlt'
+        
+  EbnfMany:
+    x-tag: 'tag:drosoft.org/ebnf,2016:many'
+    type: object
+    required:
+      - many
+    properties:
+      many:
+        $ref: '#/definitions/EbnfAny'
+        
+  EbnfMany1:
+    x-tag: 'tag:drosoft.org/ebnf,2016:many1'
+    type: object
+    required:
+      - many1
+    properties:
+      many1:
+        $ref: '#/definitions/EbnfAny'
+        
+  EbnfMinus:
+    x-tag: 'tag:drosoft.org/ebnf,2016:minus'
+    type: object
+    required:
+      - minuend
+      - subtrahend
+    properties:
+      minuend:
+        $ref: '#/definitions/EbnfAny'
+      subtrahend:
+        $ref: '#/definitions/EbnfAny'
+        
+  EbnfOpt:
+    x-tag: 'tag:drosoft.org/ebnf,2016:opt'
+    type: object
+    required:
+      - opt
+    properties:
+      opt:
+        $ref: '#/definitions/EbnfAny'
+        
+  EbnfRegExp:
+    x-tag: 'tag:drosoft.org/ebnf,2016:regexp'
+    type: object
+    required:
+      - regexp
+    properties:
+      regexp:
+        type: string
+        
+  EbnfSeq:
+    x-tag: 'tag:yaml.org,2002:seq'
+    type: object
+    required:
+      - seq
+    properties:
+      seq:
+        type: array
+        items:
+          $ref: '#/definitions/EbnfAny'
+          
+  EbnfSpecial:
+    x-tag: 'tag:drosoft.org/ebnf,2016:special'
+    type: object
+    required:
+      - special
+    properties:
+      special:
+        $ref: '#/definitions/EbnfAny'
+        
+  EbnfStr:
+    x-tag: 'tag:yaml.org,2002:str'
+    type: object
+    required:
+      - rule
+    properties:
+      rule:
+        type: string
+        
+  EbnfTimes:
+    x-tag: 'tag:drosoft.org/ebnf,2016:times'
+    type: object
+    required:
+      - times
+    properties:
+      maximum:
+        type: integer
+      minimum:
+        type: integer
+      times:
+        $ref: '#/definitions/EbnfAny'
+        
+  EbnfToken:
+    x-tag: 'tag:drosoft.org/ebnf,2016:token'
+    type: object
+    required:
+      - token
+    properties:
+      token:
+        type: string
