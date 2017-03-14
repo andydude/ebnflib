@@ -181,8 +181,12 @@ class EbnfGroup(object):
     @classmethod
     def to_yaml(cls, representer, self):
         from .utils import short_tag
-        return representer.represent_sequence(
-            short_tag(cls._tag), self.group)
+        if isinstance(self.many, (list, tuple)):
+            return representer.represent_sequence(
+                short_tag(cls._tag), self.many)
+        else:
+            return representer.represent_scalar(
+                short_tag(cls._tag), self.many)
 
 
 class EbnfMany(object):
@@ -330,7 +334,9 @@ class EbnfOpt(object):
     @classmethod
     def from_yaml(cls, constructor, node, deep=False):
         if isinstance(node.value, (list, tuple)):
-            return constructor.construct_object(node.value)
+            seq = [constructor.construct_object(child, deep=deep)
+                   for child in node.value]
+            return cls(opt=seq)
         else:
             return cls(opt=node.value)
 
