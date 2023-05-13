@@ -10,6 +10,24 @@ class EbnfAltSchema(Schema):
     '''
     alt = fields.Nested(EbnfAnySchema, many=True)
 
+class EbnfBetweenSchema(Schema):
+    '''
+    '''
+    open = fields.Nested(EbnfAnySchema)
+    between = fields.Nested(EbnfAnySchema)
+    close = fields.Nested(EbnfAnySchema)
+
+class EbnfCharRangeSchema(Schema):
+    '''
+    '''
+    first = fields.String()
+    last = fields.String()
+
+class EbnfCharSetSchema(Schema):
+    '''
+    '''
+    chars = fields.Nested(EbnfAnySchema)
+
 class EbnfCommentSchema(Schema):
     '''
     '''
@@ -55,6 +73,18 @@ class EbnfRegExpSchema(Schema):
     '''
     '''
     regexp = fields.String()
+
+class EbnfSepBySchema(Schema):
+    '''
+    '''
+    item = fields.Nested(EbnfAnySchema)
+    sepby = fields.Nested(EbnfAnySchema)
+
+class EbnfSepEndBySchema(Schema):
+    '''
+    '''
+    item = fields.Nested(EbnfAnySchema)
+    sependby = fields.Nested(EbnfAnySchema)
 
 class EbnfSeqSchema(Schema):
     '''

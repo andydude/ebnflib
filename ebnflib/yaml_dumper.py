@@ -59,13 +59,17 @@ class EbnfDumper(object):
             yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, dict_constructor)
         yaml.representer.Representer.add_representer(
             collections.OrderedDict, dict_representer)
-        EbnfDumper.init_ebnf_constructors(yaml.constructor.Constructor.add_constructor)
-        EbnfDumper.init_ebnf_representers(yaml.representer.Representer.add_representer)
+        EbnfDumper.init_ebnf_constructors(
+            yaml.constructor.Constructor.add_constructor)
+        EbnfDumper.init_ebnf_representers(
+            yaml.representer.Representer.add_representer)
 
     def convert(self, obj):
         cls = type(obj)
         typename = cls.__name__
-        if typename in self.builtin_identity and obj._tag == 'tag:yaml.org,2002:str':
+        if obj is None:
+            return 'None'
+        elif typename in self.builtin_identity and obj._tag == 'tag:yaml.org,2002:str':
             return to_unicode(obj.value)
         elif typename in self.builtin_identity and obj._tag in self.builtin_tags:
             cls = self.builtin_tags[obj._tag]
@@ -91,7 +95,7 @@ class EbnfDumper(object):
             converted = getattr(instance, self.method)(self)
             return to_unicode(converted)
         elif typename.startswith('Ebnf'):
-            return to_unicode(obj.to_ebnf(self))
+            return to_unicode(getattr(obj, self.method)(self))
         else:
             if hasattr(obj, 'value'):
                 return to_unicode(obj.value)

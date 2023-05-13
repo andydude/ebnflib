@@ -10,7 +10,7 @@ def init_crossrefs():
         'models.schema.yaml')
     
     with open(models_schema) as reader:
-        data = yaml.load(reader.read())
+        data = yaml.safe_load(reader.read())
 
     for definiendum, definiens in data['definitions'].items():
         schema = getattr(schemas, definiendum + 'Schema')
@@ -25,8 +25,8 @@ def init_crossrefs():
         if 'x-tag' in definiens:
             model._tag = definiens['x-tag']
 
-        #print model
-        #print schema
+        # print(model)
+        # print(schema)
 
 def short_tag(long_tag):
     return '!' + long_tag.rsplit(':', 1)[1]

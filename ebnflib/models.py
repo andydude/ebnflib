@@ -1,8 +1,14 @@
-from collections import Mapping, Sequence
 import six
+try:
+    from collections.abc import Mapping, Sequence
+except ImportError:
+    from collections import Mapping, Sequence
+
+from dataclasses import dataclass
+EbnfBase = object
 
 
-class EbnfAny(object):
+class EbnfAny(EbnfBase):
     '''
     Instances of this class represent ISO 14977 SS 4.10 syntactic-primary.
 
@@ -44,6 +50,8 @@ class EbnfAny(object):
 
         if 'alt' in obj:
             return EbnfAlt(**obj)
+        elif 'between' in obj:
+            return EbnfBetween(**obj)
         elif 'comment' in obj:
             return EbnfComment(**obj)
         elif 'empty' in obj:
@@ -62,6 +70,10 @@ class EbnfAny(object):
             return EbnfOpt(**obj)
         elif 'regexp' in obj:
             return EbnfRegExp(**obj)
+        elif 'sepby' in obj:
+            return EbnfSepBy(**obj)
+        elif 'sebendby' in obj:
+            return EbnfSepEndBy(**obj)
         elif 'seq' in obj:
             return EbnfSeq(**obj)
         elif 'special' in obj:
@@ -74,7 +86,8 @@ class EbnfAny(object):
             return EbnfToken(**obj)
 
 
-class EbnfAlt(object):
+@dataclass
+class EbnfAlt(EbnfBase):
     '''
     Instances of this class represent ISO 14977 SS 4.4 definitions-list.
 
@@ -96,6 +109,7 @@ class EbnfAlt(object):
            - !token '|'
            - single definition
     '''
+    alt: list[EbnfBase]
 
     def __init__(self, alt):
         object.__init__(self)
@@ -115,7 +129,8 @@ class EbnfAlt(object):
 
     @classmethod
     def from_yaml(cls, constructor, node, deep=False):
-        alt = [constructor.construct_object(child, deep=deep) for child in node.value]
+        alt = [constructor.construct_object(child, deep=deep)
+               for child in node.value]
         return cls(alt=alt)
 
     @classmethod
@@ -124,7 +139,46 @@ class EbnfAlt(object):
         return representer.represent_sequence(short_tag(cls._tag), self.alt)
 
 
-class EbnfComment(object):
+@dataclass
+class EbnfBetween(EbnfBase):
+    open: EbnfBase
+    between: EbnfBase
+    close: EbnfBase
+
+    def __init__(self, open, close, between):
+        object.__init__(self)
+        self.open = open
+        self.close = close
+        self.between = between
+
+
+@dataclass
+class EbnfCharRange(EbnfBase):
+    first: str
+    last: str
+
+    def __init__(self, first, last):
+        object.__init__(self)
+        assert isinstance(first, str)
+        assert isinstance(last, str)
+        self.first = first
+        self.last = last
+
+
+@dataclass
+class EbnfCharSet(EbnfBase):
+    chars: list[EbnfBase]
+    negative: bool
+
+    def __init__(self, chars, negative=False):
+        object.__init__(self)
+        assert isinstance(chars, list)
+        self.chars = chars
+        self.negative = negative
+
+
+@dataclass
+class EbnfComment(EbnfBase):
     '''
     Instances of this class represent ISO 14977 comments.
 
@@ -146,65 +200,85 @@ class EbnfComment(object):
 
     if you want the comment to disappear after processing.
     '''
+    comment: str
 
     def __init__(self, comment):
         object.__init__(self)
         self.comment = comment
 
 
-class EbnfEmpty(object):
+@dataclass
+class EbnfEmpty(EbnfBase):
     '''
     '''
+    empty: type(None) = None
 
-    def __init__(self, empty):
+    def __init__(self, empty=None):
         object.__init__(self)
         self.empty = empty
 
 
-class EbnfGroup(object):
+@dataclass
+class EbnfGroup(EbnfBase):
     '''
     '''
+    group: EbnfBase
 
     def __init__(self, group):
         object.__init__(self)
         self.group = group
 
     def to_ebnf(self, parent):
-        inner = ' '.join(map(parent.convert, self.group))
-        return '( %s )' % (inner)
+        if isinstance(self.group, EbnfBase):
+            inner = parent.convert(self.group)
+            return '( %s )' % (inner)
+        elif isinstance(self.group, (list, tuple)):
+            inner = ' '.join(map(parent.convert, self.group))
+            return '( %s )' % (inner)
 
     @classmethod
     def from_yaml(cls, constructor, node, deep=False):
-        group = [constructor.construct_object(child, deep=deep) for child in node.value]
+        group = [constructor.construct_object(child, deep=deep)
+                 for child in node.value]
         return cls(group=group)
 
     @classmethod
     def to_yaml(cls, representer, self):
         from .utils import short_tag
-        if isinstance(self.many, (list, tuple)):
-            return representer.represent_sequence(
-                short_tag(cls._tag), self.many)
-        else:
+        if isinstance(self.group, EbnfBase):
+            if isinstance(self.group, EbnfAlt):
+                return type(self.group).to_yaml(representer, self.group)
+            print("EbnfGroup.to_yaml.scalar", self.group)
+
             return representer.represent_scalar(
-                short_tag(cls._tag), self.many)
+                short_tag(cls._tag), self.group)
+        elif isinstance(self.group, (list, tuple)):
+            print("EbnfGroup.to_yaml.sequence")
+            return representer.represent_sequence(
+                short_tag(cls._tag), self.group)
 
 
-class EbnfMany(object):
+@dataclass
+class EbnfMany(EbnfBase):
     '''
     '''
+    many: EbnfBase
+    lazy: bool
 
-    def __init__(self, many):
+    def __init__(self, many, lazy=False):
         object.__init__(self)
         self.many = many
+        self.lazy = lazy
 
     @classmethod
     def from_yaml(cls, constructor, node, deep=False):
-        if isinstance(node.value, (list, tuple)):
-            many = [constructor.construct_object(child, deep=deep) for child in node.value]
-            return cls(many=many)
-        else:
+        if isinstance(node.value, EbnfBase):
             return cls(many=node.value)
-        
+        elif isinstance(node.value, (list, tuple)):
+            many = [constructor.construct_object(child, deep=deep)
+                    for child in node.value]
+            return cls(many=many)
+
     def to_ebnf(self, parent):
         converted = parent.convert(self.many)
         return "{ %s }" % converted
@@ -212,29 +286,34 @@ class EbnfMany(object):
     @classmethod
     def to_yaml(cls, representer, self):
         from .utils import short_tag
-        if isinstance(self.many, (list, tuple)):
-            return representer.represent_sequence(
-                short_tag(cls._tag), self.many)
-        else:
+        if isinstance(self.many, EbnfBase):
             return representer.represent_scalar(
                 short_tag(cls._tag), self.many)
+        elif isinstance(self.many, (list, tuple)):
+            return representer.represent_sequence(
+                short_tag(cls._tag), self.many)
 
 
-class EbnfMany1(object):
+@dataclass
+class EbnfMany1(EbnfBase):
     '''
     '''
+    many1: EbnfBase
+    lazy: bool
 
-    def __init__(self, many1):
+    def __init__(self, many1, lazy=False):
         object.__init__(self)
         self.many1 = many1
+        self.lazy = lazy
 
     @classmethod
     def from_yaml(cls, constructor, node, deep=False):
-        if isinstance(node.value, (list, tuple)):
-            many1 = [constructor.construct_object(child, deep=deep) for child in node.value]
-            return cls(many1=many1)
-        else:
+        if isinstance(node.value, EbnfBase):
             return cls(many1=node.value)
+        elif isinstance(node.value, (list, tuple)):
+            many1 = [constructor.construct_object(child, deep=deep)
+                     for child in node.value]
+            return cls(many1=many1)
 
     def to_ebnf(self, parent):
         converted = parent.convert(self.many1)
@@ -243,15 +322,16 @@ class EbnfMany1(object):
     @classmethod
     def to_yaml(cls, representer, self):
         from .utils import short_tag
-        if isinstance(self.many1, (list, tuple)):
+        if isinstance(self.many1, EbnfBase):
             return representer.represent_scalar(
                 short_tag(cls._tag), self.many1)
-        else:
+        elif isinstance(self.many1, (list, tuple)):
             return representer.represent_scalar(
                 short_tag(cls._tag), self.many1)
 
 
-class EbnfMap(object):
+@dataclass
+class EbnfMap(EbnfBase):
     '''
     Instances of this class represent ISO 14977 SS 4.2 syntax-rules.
 
@@ -277,6 +357,7 @@ class EbnfMap(object):
          - definitions list
          - !token ';'
     '''
+    rules: dict[str, EbnfBase]
 
     def __init__(self, rules):
         from .schemas import EbnfMapSchema
@@ -284,14 +365,15 @@ class EbnfMap(object):
         object.__init__(self)
         self.rules = rules
 
-
     def to_ebnf(self, converter):
         converted = ['\n%s\n\t= %s;\n' %
                      (definiendum, converter.convert(definiens))
                      for definiendum, definiens in self.rules.items()]
         return ''.join(converted)
 
-class EbnfMinus(object):
+
+@dataclass
+class EbnfMinus(EbnfBase):
     '''
     ISO 14977 SS 4.7 syntactic-exception
     '''
@@ -320,47 +402,53 @@ class EbnfMinus(object):
              self.subtrahend])
 
 
-class EbnfOpt(object):
+@dataclass
+class EbnfOpt(EbnfBase):
     '''
     '''
+    opt: EbnfBase
+    lazy: bool
 
-    def __init__(self, opt):
+    def __init__(self, opt, lazy=False):
         object.__init__(self)
         self.opt = opt
+        self.lazy = lazy
 
     def to_ebnf(self, parent):
         return '[ %s ]' % parent.convert(self.opt)
 
     @classmethod
     def from_yaml(cls, constructor, node, deep=False):
-        if isinstance(node.value, (list, tuple)):
+        if isinstance(node.value, EbnfBase):
+            return cls(opt=node.value)
+        elif isinstance(node.value, (list, tuple)):
             seq = [constructor.construct_object(child, deep=deep)
                    for child in node.value]
             return cls(opt=seq)
-        else:
-            return cls(opt=node.value)
 
     @classmethod
     def to_yaml(cls, representer, self):
         from .utils import short_tag
-        if isinstance(self.opt, (list, tuple)):
-            return representer.represent_sequence(
-                short_tag(cls._tag), self.opt)
-        else:
+        if isinstance(self.opt, EbnfBase):
             return representer.represent_scalar(
                 short_tag(cls._tag), self.opt)
+        elif isinstance(self.opt, (list, tuple)):
+            return representer.represent_sequence(
+                short_tag(cls._tag), self.opt)
 
 
-class EbnfRegExp(object):
+@dataclass
+class EbnfRegExp(EbnfBase):
     '''
     '''
+    regexp: str
 
     def __init__(self, regexp):
         object.__init__(self)
         self.regexp = regexp
 
     def to_ebnf(self, parent):
-        if not (self.regexp.startswith('/') and \
+        if not (self.regexp.startswith('/') and
                 self.regexp.endswith('/')):
             self.regexp = '/' + self.regexp + '/'
         return '?%s?' % self.regexp
@@ -370,18 +458,69 @@ class EbnfRegExp(object):
 
     @classmethod
     def from_yaml(cls, constructor, node, deep=False):
-        return cls(regexp=unicode(node.value))
+        return cls(regexp=str(node.value))
 
     @classmethod
     def to_yaml(cls, representer, self):
         from .utils import short_tag
         return representer.represent_scalar(
-            short_tag(cls._tag), unicode(self.regexp))
+            short_tag(cls._tag), str(self.regexp))
 
 
-class EbnfSeq(object):
+@dataclass
+class EbnfSepBy(EbnfBase):
+    '''
+
+    EbnfSepBy is not a fundamental structure. It can be represented as:
+
+    .. code:: python
+
+       EbnfSepBy(item=item, sepby=separator) ==
+       EbnfSeq(
+         seq=[
+           item,
+           EbnfMany(
+             many=EbnfSeq(
+               seq=[
+                 separator,
+                 item
+               ]
+             )
+           )
+         ]
+       )
+
+    So, for example, the grammar `element ( Comma element )*`
+    can be written as `@sepEndBy[Comma element]`
+    In Raku, this is written as `element % Comma`.
+    '''
+    item: EbnfBase
+    sepby: EbnfBase
+
+    def __init__(self, item, sepby):
+        object.__init__(self)
+        self.item = item
+        self.sepby = sepby
+
+
+@dataclass
+class EbnfSepEndBy(EbnfBase):
     '''
     '''
+    item: EbnfBase
+    sependby: EbnfBase
+
+    def __init__(self, item, sependby):
+        object.__init__(self)
+        self.item = item
+        self.sependby = sependby
+
+
+@dataclass
+class EbnfSeq(EbnfBase):
+    '''
+    '''
+    seq: list[EbnfBase]
 
     def __init__(self, seq):
         object.__init__(self)
@@ -389,8 +528,9 @@ class EbnfSeq(object):
         self.seq = seq
 
     def to_ebnf(self, converter):
-        converted = ',\n\t'.join([converter.convert(value)
-                                   for value in self.seq])
+        converted = ',\n\t'.join([
+            converter.convert(value)
+            for value in self.seq])
         if len(converted) < 80:
             converted = converted.replace('\n\t', ' ')
         return converted
@@ -398,7 +538,7 @@ class EbnfSeq(object):
     @classmethod
     def from_yaml(cls, constructor, node, deep=False):
         seq = [constructor.construct_object(child, deep=deep)
-            for child in node.value]
+               for child in node.value]
         return cls(seq=seq)
 
     @classmethod
@@ -407,9 +547,11 @@ class EbnfSeq(object):
         return representer.represent_sequence(short_tag(cls._tag), self.seq)
 
 
-class EbnfSpecial(object):
+@dataclass
+class EbnfSpecial(EbnfBase):
     '''
     '''
+    special: str
 
     def __init__(self, special):
         object.__init__(self)
@@ -429,9 +571,11 @@ class EbnfSpecial(object):
         return representer.represent_scalar(short_tag(cls._tag), self.special)
 
 
-class EbnfStr(object):
+@dataclass
+class EbnfStr(EbnfBase):
     '''
     '''
+    rule: str
 
     def __init__(self, rule):
         object.__init__(self)
@@ -441,19 +585,23 @@ class EbnfStr(object):
         return '%s(rule=%s)' % (
             type(self).__name__,
             repr(self.rule))
-    
+
     def to_ebnf(self, parent):
-        if isinstance(self.rule, (str, unicode)):
-            return unicode(self.rule)
+        if isinstance(self.rule, (str, bytes)):
+            return str(self.rule)
         return parent.convert(self.rule)
 
     def startswith(self, value):
         return self.rule.startswith(value)
 
 
-class EbnfTimes(object):
+@dataclass
+class EbnfTimes(EbnfBase):
     '''
     '''
+    times: EbnfBase
+    minimum: int
+    maximum: int
 
     def __init__(self, times, maximum=None, minimum=None):
         object.__init__(self)
@@ -462,13 +610,16 @@ class EbnfTimes(object):
         self.times = times
 
     def to_ebnf(self, parent):
-        return '%d * %s' % (int(self.args[0]),
-                            parent.convert(self.args[1]))
+        if self.maximum == self.minimum:
+            return '%d * %s' % (int(self.maximum),
+                                parent.convert(self.times))
+        else:
+            raise ValueError("ISO EBNF does not support min/max repetition.")
 
     @classmethod
     def from_yaml(cls, constructor, node, deep=False):
         results = [constructor.construct_object(child)
-            for child in node.value]
+                   for child in node.value]
         r = cls(None)
         if len(results) == 3:
             r.minimum, r.maximum, r.times = results
@@ -484,17 +635,25 @@ class EbnfTimes(object):
     @classmethod
     def to_yaml(cls, representer, self):
         from .utils import short_tag
-        if isinstance(self.times, (list, tuple)):
-            return representer.represent_sequence(
-                short_tag(cls._tag), self.times)
-        else:
+        if isinstance(self.times, EbnfBase):
             return representer.represent_scalar(
                 short_tag(cls._tag), self.times)
+        elif isinstance(self.times, (list, tuple)):
+            return representer.represent_sequence(
+                short_tag(cls._tag), self.times)
 
 
-class EbnfToken(object):
+@dataclass
+class EbnfToken(EbnfBase):
     '''
+      # This represents the characters matched.
+      # For post-lexical-scanning productions,
+      # You will have to make a new type.
+      # Or you can use the grammar-parsing
+      # production type, EbnfStr which
+      # represents rule name references.
     '''
+    token: str
 
     def __init__(self, token):
         object.__init__(self)
@@ -503,7 +662,7 @@ class EbnfToken(object):
     def to_ebnf(self, _=None):
         if "'" in self.token:
             if '"' in self.token:
-                raise ValueError
+                return '"BAD:%s"' % self.token
             else:
                 return '"%s"' % self.token
         else:
@@ -517,4 +676,4 @@ class EbnfToken(object):
     def to_yaml(cls, representer, self):
         from .utils import short_tag
         return representer.represent_scalar(
-            short_tag(cls._tag), unicode(self.token))
+            short_tag(cls._tag), str(self.token))
