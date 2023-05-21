@@ -3,7 +3,6 @@ definitions:
   EbnfAny:
     oneOf:
       - $ref: '#/definitions/EbnfAlt'
-      - $ref: '#/definitions/EbnfBetween'
       - $ref: '#/definitions/EbnfCharRange'
       - $ref: '#/definitions/EbnfCharSet'
       - $ref: '#/definitions/EbnfComment'
@@ -27,26 +26,12 @@ definitions:
     type: object
     required:
       - alt
+    additionalProperties: false
     properties:
       alt:
         type: array
         items:
           $ref: '#/definitions/EbnfSeq'
-
-  EbnfBetween:
-    x-tag: 'tag:drosoft.org/ebnf,2016:between'
-    type: object
-    required:
-      - open
-      - between
-      - close
-    properties:
-      open:
-        $ref: '#/definitions/EbnfAny'
-      between:
-        $ref: '#/definitions/EbnfAny'
-      close:
-        $ref: '#/definitions/EbnfAny'
 
   EbnfCharRange:
     x-tag: 'tag:drosoft.org/ebnf,2016:charrange'
@@ -54,6 +39,7 @@ definitions:
     required:
       - first
       - last
+    additionalProperties: false
     properties:
       first:
         type: string
@@ -65,13 +51,12 @@ definitions:
     type: object
     required:
       - chars
+    additionalProperties: false
     properties:
       # TODO schema should be limited to
       # either EbnfToken or EbnfCharRange
       chars:
-        type: array
-        items:
-          $ref: '#/definitions/EbnfAny'
+        type: string
       negative:
         type: boolean
 
@@ -80,6 +65,7 @@ definitions:
     type: object
     required:
       - comment
+    additionalProperties: false
     properties:
       comment:
         type: string
@@ -89,6 +75,7 @@ definitions:
     type: object
     required:
       - empty
+    additionalProperties: false
     properties:
       empty:
         $ref: '#/definitions/EbnfAny'
@@ -98,6 +85,7 @@ definitions:
     type: object
     required:
       - group
+    additionalProperties: false
     properties:
       group:
         $ref: '#/definitions/EbnfAny'
@@ -107,6 +95,7 @@ definitions:
     type: object
     required:
       - rules
+    additionalProperties: false
     properties:
       rules:
         $ref: '#/definitions/EbnfAlt'
@@ -116,6 +105,7 @@ definitions:
     type: object
     required:
       - many
+    additionalProperties: false
     properties:
       many:
         $ref: '#/definitions/EbnfAny'
@@ -127,6 +117,7 @@ definitions:
     type: object
     required:
       - many1
+    additionalProperties: false
     properties:
       many1:
         $ref: '#/definitions/EbnfAny'
@@ -139,6 +130,7 @@ definitions:
     required:
       - minuend
       - subtrahend
+    additionalProperties: false
     properties:
       minuend:
         $ref: '#/definitions/EbnfAny'
@@ -150,6 +142,7 @@ definitions:
     type: object
     required:
       - opt
+    additionalProperties: false
     properties:
       opt:
         $ref: '#/definitions/EbnfAny'
@@ -161,6 +154,7 @@ definitions:
     type: object
     required:
       - regexp
+    additionalProperties: false
     properties:
       regexp:
         type: string
@@ -169,22 +163,48 @@ definitions:
     x-tag: 'tag:drosoft.org/ebnf,2016:sepby'
     type: object
     required:
-      - sep
+      - sepby
+    additionalProperties: false
     properties:
-      item:
-        $ref: '#/definitions/EbnfAny'
       sepby:
+        $ref: '#/definitions/EbnfAny'
+      item:
         $ref: '#/definitions/EbnfAny'
 
   EbnfSepEndBy:
     x-tag: 'tag:drosoft.org/ebnf,2016:sependby'
     type: object
     required:
-      - sep
+      - sependby
+    additionalProperties: false
     properties:
+      sependby:
+        $ref: '#/definitions/EbnfAny'
       item:
         $ref: '#/definitions/EbnfAny'
-      sependby:
+
+  EbnfSepBy1:
+    x-tag: 'tag:drosoft.org/ebnf,2016:sepby1'
+    type: object
+    required:
+      - sepby1
+    additionalProperties: false
+    properties:
+      sepby1:
+        $ref: '#/definitions/EbnfAny'
+      item:
+        $ref: '#/definitions/EbnfAny'
+
+  EbnfSepEndBy1:
+    x-tag: 'tag:drosoft.org/ebnf,2016:sependby1'
+    type: object
+    required:
+      - sependby1
+    additionalProperties: false
+    properties:
+      sependby1:
+        $ref: '#/definitions/EbnfAny'
+      item:
         $ref: '#/definitions/EbnfAny'
 
   EbnfSeq:
@@ -192,6 +212,7 @@ definitions:
     type: object
     required:
       - seq
+    additionalProperties: false
     properties:
       seq:
         type: array
@@ -203,15 +224,17 @@ definitions:
     type: object
     required:
       - special
+    additionalProperties: false
     properties:
       special:
-        $ref: '#/definitions/EbnfAny'
+        type: string
 
   EbnfStr:
     x-tag: 'tag:yaml.org,2002:str'
     type: object
     required:
       - rule
+    additionalProperties: false
     properties:
       rule:
         type: string
@@ -221,19 +244,23 @@ definitions:
     type: object
     required:
       - times
+    additionalProperties: false
     properties:
-      maximum:
-        type: integer
-      minimum:
-        type: integer
       times:
         $ref: '#/definitions/EbnfAny'
+      minimum:
+        type: integer
+      maximum:
+        type: integer
+      lazy:
+        type: boolean
 
   EbnfToken:
     x-tag: 'tag:drosoft.org/ebnf,2016:token'
     type: object
     required:
       - token
+    additionalProperties: false
     properties:
       token:
         type: string
